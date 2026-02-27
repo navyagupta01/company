@@ -1,28 +1,57 @@
 import { ReactNode } from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
+import { ThemeProvider, useTheme } from "./themeContext";
 
 interface LayoutProps {
     children: ReactNode;
 }
 
-const Layout = ({ children }: LayoutProps) => {
+const LayoutInner = ({ children }: LayoutProps) => {
+    const { theme } = useTheme();
+
     return (
-        <div className="flex flex-col min-h-screen bg-background relative overflow-x-hidden">
-            {/* Background gradients/blobs */}
-            <div className="fixed inset-0 z-0 pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/5 blur-[100px]" />
-                <div className="absolute top-[20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-blue-500/5 blur-[120px]" />
-                <div className="absolute bottom-[-10%] left-[20%] w-[700px] h-[700px] rounded-full bg-purple-500/5 blur-[100px]" />
-            </div>
+        <div
+            data-theme={theme}
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '100vh',
+                background: theme === 'dark' ? '#080808' : '#f8f5f0',
+                overflowX: 'hidden',
+                position: 'relative',
+                transition: 'background 0.4s ease',
+            }}
+        >
+            {/* Subtle vignette — adapts to theme */}
+            <div
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 0,
+                    pointerEvents: 'none',
+                    background: theme === 'dark'
+                        ? 'radial-gradient(ellipse 100% 40% at 50% 0%, rgba(185,28,28,0.04) 0%, transparent 70%), radial-gradient(ellipse 80% 30% at 50% 100%, rgba(185,28,28,0.03) 0%, transparent 70%)'
+                        : 'radial-gradient(ellipse 100% 40% at 50% 0%, rgba(185,28,28,0.05) 0%, transparent 70%), radial-gradient(ellipse 80% 30% at 50% 100%, rgba(155,108,58,0.04) 0%, transparent 70%)',
+                    transition: 'background 0.4s ease',
+                }}
+            />
 
             <Navbar />
-            <main className="flex-grow pt-20 relative z-10">
+
+            <main style={{ flexGrow: 1, paddingTop: '72px', position: 'relative', zIndex: 1 }}>
                 {children}
             </main>
+
             <Footer />
         </div>
     );
 };
+
+const Layout = ({ children }: LayoutProps) => (
+    <ThemeProvider>
+        <LayoutInner>{children}</LayoutInner>
+    </ThemeProvider>
+);
 
 export default Layout;
