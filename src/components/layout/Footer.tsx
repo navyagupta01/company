@@ -201,10 +201,10 @@ const Footer = () => {
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {[
-                                    '123 Financial District',
-                                    'Mumbai, MH 400001',
-                                    '+91 98765 43210',
-                                    'contact@ngconsultant.com',
+                                    'KESHAV PURAM',
+                                    'DELHI, 110035',
+                                    '+91 9891029308, +91 9891609550',
+                                    'ngconsultant0749@gmail.com',
                                 ].map((line, i) => (
                                     <span key={i} style={{ color: c.contact, fontSize: '0.875rem', fontWeight: 300, lineHeight: 1.5, transition: 'color 0.4s ease' }}>{line}</span>
                                 ))}

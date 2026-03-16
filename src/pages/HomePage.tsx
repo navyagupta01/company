@@ -244,6 +244,20 @@ const Hero = () => {
     const y = useTransform(scrollYProgress, [0, 1], [0, 120]);
     const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
+    const scrollToContact = () => {
+        const contactSection = document.getElementById('contact');
+        if (contactSection) {
+            contactSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
+    const scrollToServices = () => {
+        const servicesSection = document.getElementById('services');
+        if (servicesSection) {
+            servicesSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
     return (
         <section ref={ref} className="relative min-h-screen flex items-center justify-center overflow-hidden" style={{ background: 'var(--black)' }}>
             {/* Background Image */}
@@ -325,6 +339,7 @@ const Hero = () => {
                         className="flex flex-col sm:flex-row items-center justify-center gap-5"
                     >
                         <button
+                            onClick={scrollToContact}
                             className="glitch-hover group relative overflow-hidden px-10 py-4 condensed-font text-lg tracking-[0.12em] uppercase transition-all duration-300"
                             style={{
                                 background: 'var(--accent-warm)',
@@ -337,6 +352,7 @@ const Hero = () => {
                             </span>
                         </button>
                         <button
+                            onClick={scrollToServices}
                             className="px-10 py-4 condensed-font text-lg tracking-[0.12em] uppercase transition-all duration-300 hover:border-white"
                             style={{
                                 border: '1px solid var(--grey-700)',
@@ -345,7 +361,7 @@ const Hero = () => {
                                 clipPath: 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))'
                             }}
                         >
-                            View Plans
+                            Our Services
                         </button>
                     </motion.div>
 
@@ -677,9 +693,9 @@ const Contact = () => {
 
                         <div className="space-y-10">
                             {[
-                                { icon: Phone, label: "Call Us", primary: "+91 98765 43210", secondary: "Mon–Fri, 9am – 6pm" },
-                                { icon: Mail, label: "Email Us", primary: "contact@ngconsultant.com", secondary: "consult@ngconsultant.com" },
-                                { icon: MapPin, label: "Visit Us", primary: "123 Financial District,", secondary: "Mumbai, Maharashtra 400001" },
+                                { icon: Phone, label: "Call Us", primary: "+91 9891029308, +91 9891609550", secondary: "Mon–Sat, 10am – 6pm" },
+                                { icon: Mail, label: "Email Us", primary: "contact@ngconsultant.com", secondary: "ngconsultant0749@gmail.com" },
+                                { icon: MapPin, label: "Visit Us", primary: "Keshav Puram,", secondary: "Delhi,  110035" },
                             ].map(({ icon: Icon, label, primary, secondary }, i) => (
                                 <motion.div
                                     key={i}
