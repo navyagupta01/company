@@ -3,7 +3,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import HomePage from "./pages/HomePage";
 import AuthPage from "./pages/AuthPage";
 import DashboardLayout from "./pages/Dashboard";
-import OverviewPage from "./pages/Dashboard/Overview";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {

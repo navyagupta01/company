@@ -2,14 +2,12 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
-    ArrowRight, ShieldCheck, Shield, LineChart, Wallet, PiggyBank, Briefcase, Landmark,
+    ArrowRight, ShieldCheck, Shield, Briefcase,
     Users, Target, Award,
     Heart, Umbrella, Car, Banknote,
     Quote,
     Mail, Phone, MapPin, ChevronRight
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Layout from "@/components/layout/Layout";
 import { useTheme } from "../components/layout/themeContext";

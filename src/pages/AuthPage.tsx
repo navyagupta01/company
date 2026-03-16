@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -382,8 +382,14 @@ const AuthPageContent = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
-    const { login, register } = useAuth();
+    const { login, register, isAuthenticated } = useAuth();
     const { theme, toggleTheme } = useTheme();
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate("/dashboard");
+        }
+    }, [isAuthenticated, navigate]);
 
     // Login state
     const [loginEmail, setLoginEmail] = useState("");
@@ -402,10 +408,9 @@ const AuthPageContent = () => {
         setError(null);
         try {
             await login(loginEmail, loginPassword);
-            navigate("/dashboard");
+            // Navigation is now handled by useEffect listening to isAuthenticated
         } catch (err: any) {
             setError(err.message || "Invalid email or password");
-        } finally {
             setIsLoading(false);
         }
     };
@@ -416,12 +421,11 @@ const AuthPageContent = () => {
         setError(null);
         try {
             await register(registerName, registerEmail, registerPassword);
-            navigate("/dashboard");
+            // Navigation is now handled by useEffect
         } catch (err: any) {
             setError(err.message || "Could not complete registration");
-        } finally {
             setIsLoading(false);
-        }
+        } 
     };
 
     return (

@@ -1,11 +1,13 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Heart, Umbrella, Car, Banknote, Briefcase, Shield,
     Download, ChevronRight, FileText, AlertTriangle, CheckCircle, Clock,
-    Filter, Search
+    Filter, Search 
 } from "lucide-react";
 import { useTheme } from "../../contexts/ThemeContext";
+import { supabase } from "../../lib/supabaseClient";
+
 // ─── Global Styles ────────────────────────────────────────────────────────────
 const GlobalStyles = () => (
     <style>{`
@@ -150,93 +152,7 @@ const GlobalStyles = () => (
     `}</style>
 );
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-const POLICIES = [
-    {
-        id: 1,
-        icon: Heart,
-        name: "Health Shield Plus",
-        provider: "Star Health Insurance",
-        policyNo: "SH-2021-00412",
-        type: "Health",
-        sumAssured: "₹10,00,000",
-        premium: "₹18,500/yr",
-        startDate: "12 Jun 2021",
-        expiryDate: "12 Jun 2025",
-        daysLeft: 88,
-        status: "active",
-    },
-    {
-        id: 2,
-        icon: Umbrella,
-        name: "SecureLife Term Plan",
-        provider: "LIC of India",
-        policyNo: "LIC-2019-88743",
-        type: "Life",
-        sumAssured: "₹1,00,00,000",
-        premium: "₹8,200/yr",
-        startDate: "15 Apr 2019",
-        expiryDate: "15 Apr 2025",
-        daysLeft: 30,
-        status: "due",
-    },
-    {
-        id: 3,
-        icon: Car,
-        name: "Motor Protect 360",
-        provider: "ICICI Lombard",
-        policyNo: "IL-2024-33101",
-        type: "Motor",
-        sumAssured: "₹6,50,000",
-        premium: "₹4,600/yr",
-        startDate: "28 Apr 2024",
-        expiryDate: "28 Apr 2025",
-        daysLeft: 43,
-        status: "due",
-    },
-    {
-        id: 4,
-        icon: Banknote,
-        name: "Wealth Builder SIP",
-        provider: "HDFC Mutual Fund",
-        policyNo: "HDFC-MF-77211",
-        type: "Investment",
-        sumAssured: "₹2,14,000 (NAV)",
-        premium: "₹5,000/mo",
-        startDate: "01 Jan 2022",
-        expiryDate: "01 Jan 2027",
-        daysLeft: 648,
-        status: "active",
-    },
-    {
-        id: 5,
-        icon: Shield,
-        name: "Critical Illness Guard",
-        provider: "HDFC ERGO",
-        policyNo: "HDFC-CI-44312",
-        type: "Health",
-        sumAssured: "₹25,00,000",
-        premium: "₹9,800/yr",
-        startDate: "03 Mar 2023",
-        expiryDate: "03 Mar 2026",
-        daysLeft: 352,
-        status: "active",
-    },
-    {
-        id: 6,
-        icon: Briefcase,
-        name: "Pension Secure Plus",
-        provider: "Bajaj Allianz",
-        policyNo: "BA-2018-09812",
-        type: "Retirement",
-        sumAssured: "Corpus on maturity",
-        premium: "₹25,000/yr",
-        startDate: "10 Nov 2018",
-        expiryDate: "10 Nov 2024",
-        daysLeft: 0,
-        status: "expired",
-    },
-];
+// ─── Data Helpers ─────────────────────────────────────────────────────────────────────
 
 const FILTERS = ["All", "Active", "Due", "Expired"];
 
@@ -249,32 +165,65 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 // ─── Summary Cards ────────────────────────────────────────────────────────────
-const SummaryCards = () => {
+const getTypeIcon = (name: string) => {
+    const lower = (name || "").toLowerCase();
+    if (lower.includes("health")) return Heart;
+    if (lower.includes("life")) return Umbrella;
+    if (lower.includes("car") || lower.includes("motor")) return Car;
+    if (lower.includes("wealth") || lower.includes("invest")) return Banknote;
+    if (lower.includes("pension") || lower.includes("retire")) return Briefcase;
+    return Shield;
+};
+
+const getTypeName = (name: string) => {
+    const lower = (name || "").toLowerCase();
+    if (lower.includes("health")) return "Health";
+    if (lower.includes("life")) return "Life";
+    if (lower.includes("car") || lower.includes("motor")) return "Motor";
+    if (lower.includes("wealth") || lower.includes("invest")) return "Investment";
+    if (lower.includes("pension") || lower.includes("retire")) return "Retirement";
+    return "General";
+};
+
+// Formatter helper
+const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? dateString : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+// ─── Summary Cards ────────────────────────────────────────────────────────────
+const SummaryCards = ({ policiesList }: { policiesList: any[] }) => {
+    const totalPolicies = policiesList.length;
+    const activePolicies = policiesList.filter(p => p.status?.toLowerCase() === 'active').length;
+    const duePolicies = policiesList.filter(p => p.status?.toLowerCase() === 'due' || p.status?.toLowerCase() === 'pending').length;
+    const expiredPolicies = policiesList.filter(p => p.status?.toLowerCase() === 'expired').length;
+
     const cards = [
         {
             label: "Total Policies",
-            value: 6,
+            value: totalPolicies,
             icon: FileText,
             accent: "#c9b99a",
             watermark: "TOTAL",
         },
         {
             label: "Active Policies",
-            value: 3,
+            value: activePolicies,
             icon: CheckCircle,
             accent: "#4ade80",
             watermark: "ACTIVE",
         },
         {
             label: "Due for Renewal",
-            value: 2,
+            value: duePolicies,
             icon: AlertTriangle,
             accent: "#fbbf24",
             watermark: "DUE",
         },
         {
             label: "Expired",
-            value: 1,
+            value: expiredPolicies,
             icon: Clock,
             accent: "#f87171",
             watermark: "LAPSED",
@@ -332,15 +281,39 @@ const SummaryCards = () => {
 };
 
 // ─── Policy Table ─────────────────────────────────────────────────────────────
-const PolicyList = () => {
+const PolicyList = ({ policiesList }: { policiesList: any[] }) => {
     const [activeFilter, setActiveFilter] = useState("All");
     const [search, setSearch] = useState("");
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
-    const filtered = POLICIES.filter(p => {
+    const mappedPolicies = policiesList.map(p => {
+        const typeStr = getTypeName(p.policy_name);
+        const expDate = new Date(p.expiry_date);
+        const now = new Date();
+        const daysLeft = !isNaN(expDate.getTime()) ? Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 3600 * 24)) : 0;
+
+        return {
+            id: p.id,
+            icon: getTypeIcon(p.policy_name),
+            name: p.policy_name || "Unknown Policy",
+            provider: p.company_name || "Unknown Provider",
+            policyNo: p.policy_number || "N/A",
+            type: typeStr,
+            sumAssured: "N/A", // Schema doesn't have it
+            premium: "N/A", // Schema doesn't have it
+            startDate: "N/A", // Schema doesn't have it
+            expiryDate: formatDate(p.expiry_date),
+            daysLeft: Math.max(0, daysLeft),
+            status: (p.status || "expired").toLowerCase(),
+            document_link: p.document_link || null,
+        };
+    });
+
+    const filtered = mappedPolicies.filter(p => {
         const matchFilter =
             activeFilter === "All" ||
             (activeFilter === "Active" && p.status === "active") ||
-            (activeFilter === "Due" && p.status === "due") ||
+            (activeFilter === "Due" && (p.status === "due" || p.status === "pending")) ||
             (activeFilter === "Expired" && p.status === "expired");
         const matchSearch =
             p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -432,7 +405,10 @@ const PolicyList = () => {
                             className="policy-row"
                         >
                             {/* Mobile layout */}
-                            <div className="md:hidden px-4 py-5 flex items-start gap-4">
+                            <div 
+                                className="md:hidden px-4 py-5 flex items-start gap-4 cursor-pointer"
+                                onClick={() => setExpandedId(expandedId === policy.id ? null : policy.id)}
+                            >
                                 <div
                                     className="p-2 flex-shrink-0 mt-1"
                                     style={{ background: 'var(--grey-800)', border: '1px solid var(--grey-700)' }}
@@ -451,19 +427,21 @@ const PolicyList = () => {
                                     </div>
                                     <p className="text-xs mb-2" style={{ color: 'var(--grey-400)', fontWeight: 300 }}>{policy.provider}</p>
                                     <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs" style={{ color: 'var(--grey-400)', fontWeight: 300 }}>
-                                        <span>{policy.sumAssured}</span>
                                         <span>Exp: {policy.expiryDate}</span>
                                     </div>
                                 </div>
-                                <button className="dl-btn flex-shrink-0 self-center p-2" style={{ padding: '7px' }}>
-                                    <Download size={14} />
-                                </button>
+                                <ChevronRight 
+                                    size={15} 
+                                    className="row-arrow flex-shrink-0 self-center" 
+                                    style={{ color: 'var(--accent-warm)', transform: expandedId === policy.id ? 'rotate(90deg)' : 'none', transition: 'transform 0.3s' }} 
+                                />
                             </div>
 
                             {/* Desktop layout */}
                             <div
-                                className="hidden md:grid items-center px-4 py-6 gap-4"
+                                className="hidden md:grid items-center px-4 py-6 gap-4 cursor-pointer"
                                 style={{ gridTemplateColumns: '2.5fr 1.2fr 1.2fr 1.2fr 1fr 1fr' }}
+                                onClick={() => setExpandedId(expandedId === policy.id ? null : policy.id)}
                             >
                                 {/* Policy name */}
                                 <div className="flex items-center gap-4 min-w-0">
@@ -535,12 +513,75 @@ const PolicyList = () => {
 
                                 {/* Actions */}
                                 <div className="flex items-center justify-end gap-3">
-                                    <button className="dl-btn">
-                                        <Download size={13} /> PDF
-                                    </button>
-                                    <ChevronRight size={15} className="row-arrow" style={{ color: 'var(--accent-warm)', flexShrink: 0 }} />
+                                    {policy.document_link ? (
+                                        <button 
+                                            className="dl-btn"
+                                            onClick={() => window.open(policy.document_link, "_blank", "noopener,noreferrer")}
+                                        >
+                                            <Download size={13} /> PDF
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            className="dl-btn"
+                                            disabled
+                                            style={{ opacity: 0.3, cursor: 'not-allowed' }}
+                                            title="No document available"
+                                        >
+                                            <Download size={13} /> N/A
+                                        </button>
+                                    )}
+                                    <ChevronRight 
+                                        size={15} 
+                                        className="row-arrow" 
+                                        style={{ color: 'var(--accent-warm)', flexShrink: 0, transform: expandedId === policy.id ? 'rotate(90deg)' : 'none', transition: 'transform 0.3s' }} 
+                                    />
                                 </div>
                             </div>
+                            
+                            {/* Inner expanded data */}
+                            <motion.div
+                                initial={false}
+                                animate={{ height: expandedId === policy.id ? 'auto' : 0, opacity: expandedId === policy.id ? 1 : 0 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="px-5 py-6 mx-4 mb-4" style={{ background: 'var(--form-bg)', border: '1px dashed var(--grey-700)' }}>
+                                    <h4 className="condensed-font text-xl uppercase tracking-widest mb-4" style={{ color: 'var(--accent-warm)' }}>Policy Details</h4>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                        <div>
+                                            <p className="condensed-font text-xs tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--grey-400)' }}>Policy No.</p>
+                                            <p className="text-sm font-medium" style={{ color: 'var(--white)' }}>{policy.policyNo}</p>
+                                        </div>
+                                        <div>
+                                            <p className="condensed-font text-xs tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--grey-400)' }}>Provider</p>
+                                            <p className="text-sm font-medium" style={{ color: 'var(--white)' }}>{policy.provider}</p>
+                                        </div>
+                                        <div>
+                                            <p className="condensed-font text-xs tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--grey-400)' }}>Expiry Date</p>
+                                            <p className="text-sm font-medium" style={{ color: 'var(--white)' }}>{policy.expiryDate}</p>
+                                        </div>
+                                        <div>
+                                            <p className="condensed-font text-xs tracking-[0.2em] uppercase mb-1" style={{ color: 'var(--grey-400)' }}>Days Left</p>
+                                            <p className="text-sm font-medium" style={{ color: policy.daysLeft <= 45 ? '#fbbf24' : 'var(--white)' }}>
+                                                {policy.daysLeft} days
+                                            </p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-6 pt-5 flex items-center gap-4" style={{ borderTop: '1px solid var(--grey-700)' }}>
+                                        {policy.document_link ? (
+                                            <button 
+                                                className="dl-btn"
+                                                onClick={(e) => { e.stopPropagation(); window.open(policy.document_link, "_blank", "noopener,noreferrer"); }}
+                                            >
+                                                <Download size={13} /> DOWNLOAD POLICY DOCUMENT
+                                            </button>
+                                        ) : (
+                                            <span className="text-xs italic" style={{ color: 'var(--grey-600)' }}>No document available.</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </motion.div>
                         </motion.div>
                     ))}
                 </div>
@@ -549,7 +590,7 @@ const PolicyList = () => {
             {/* Footer count */}
             <div className="mt-6 flex items-center justify-between" style={{ borderTop: '1px solid var(--grey-700)', paddingTop: '1.25rem' }}>
                 <p className="condensed-font text-xs tracking-[0.2em] uppercase" style={{ color: 'var(--grey-600)' }}>
-                    Showing {filtered.length} of {POLICIES.length} policies
+                    Showing {filtered.length} of {mappedPolicies.length} policies
                 </p>
                 <p className="condensed-font text-xs tracking-[0.15em] uppercase" style={{ color: 'var(--grey-600)' }}>
                     Last updated: Mar 2025
@@ -563,6 +604,17 @@ const PolicyList = () => {
 const PoliciesPage = () => {
     // Consume theme context to trigger re-renders on theme change
     useTheme();
+    const [policiesData, setPoliciesData] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchPolicies = async () => {
+            const { data, error } = await supabase.from('policies').select('*').order('expiry_date', { ascending: true });
+            if (data && !error) {
+                setPoliciesData(data);
+            }
+        };
+        fetchPolicies();
+    }, []);
 
     return (
         <>
@@ -613,9 +665,9 @@ const PoliciesPage = () => {
 
                 {/* Main content */}
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-                    <SummaryCards />
+                    <SummaryCards policiesList={policiesData} />
                     <div className="section-rule mb-14" />
-                    <PolicyList />
+                    <PolicyList policiesList={policiesData} />
                 </div>
             </div>
         </>

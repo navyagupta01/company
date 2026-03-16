@@ -1,11 +1,14 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Mail, Phone, MapPin, Shield, Edit3, Camera,
     ShieldCheck, Lock, Eye, EyeOff, Check, Clock
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useTheme } from "../../components/layout/themeContext";
+import { useAuth } from "../../contexts/AuthContext";
+import { supabase } from "../../lib/supabaseClient";
+
 // ─── Global Styles (same as HomePage) ────────────────────────────────────────
 const GlobalStyles = () => (
     <style>{`
@@ -349,13 +352,43 @@ const TabNav = ({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: 
 
 // ─── Edit Profile Tab ─────────────────────────────────────────────────────────
 const EditProfileTab = ({ user, setUser }: { user: UserData; setUser: (u: UserData) => void }) => {
+    const { user: authUser } = useAuth();
     const [form, setForm] = useState({ ...user });
     const [saved, setSaved] = useState(false);
+    const [saving, setSaving] = useState(false);
 
-    const handleSave = () => {
-        setUser({ ...form });
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2500);
+    useEffect(() => {
+        setForm({ ...user });
+    }, [user]);
+
+    const handleSave = async () => {
+        if (!authUser?.id) return;
+        setSaving(true);
+        try {
+            const updates = {
+                user_id: authUser.id,
+                full_name: form.name,
+                phone: form.phone,
+                occupation: form.occupation,
+                city: form.city,
+                address: form.address,
+                pincode: form.pincode,
+                annual_income: form.annualIncome,
+                pan: form.pan,
+                updated_at: new Date().toISOString(),
+            };
+            const { error } = await supabase.from('user_profiles').upsert(updates);
+            if (error) throw error;
+            
+            setUser({ ...form });
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2500);
+        } catch (error) {
+            console.error("Error saving profile:", error);
+            alert("Failed to save profile. Please try again.");
+        } finally {
+            setSaving(false);
+        }
     };
 
     const Field = ({ label, name, type = 'text', placeholder }: { label: string; name: keyof UserData; type?: string; placeholder?: string }) => (
@@ -429,16 +462,18 @@ const EditProfileTab = ({ user, setUser }: { user: UserData; setUser: (u: UserDa
                 <div className="flex items-center gap-4 pt-2">
                     <button
                         onClick={handleSave}
+                        disabled={saving}
                         className="glitch-hover condensed-font text-lg tracking-[0.15em] uppercase px-10 py-4 transition-all duration-300 flex items-center gap-2"
                         style={{
                             background: saved ? 'rgba(74,222,128,0.15)' : 'var(--accent-warm)',
                             color: saved ? '#4ade80' : 'var(--black)',
                             border: saved ? '1px solid rgba(74,222,128,0.4)' : 'none',
-                            cursor: 'pointer',
+                            cursor: saving ? 'not-allowed' : 'pointer',
+                            opacity: saving ? 0.7 : 1,
                             clipPath: 'polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))',
                         }}
                     >
-                        {saved ? <><Check size={16} /> Saved</> : <>Save Changes <Edit3 size={15} /></>}
+                        {saved ? <><Check size={16} /> Saved</> : saving ? "Saving..." : <>Save Changes <Edit3 size={15} /></>}
                     </button>
                     <button
                         onClick={() => setForm({ ...user })}
@@ -628,22 +663,93 @@ interface UserData {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 const ProfilePage = () => {
+    const { user: authUser } = useAuth();
     const [activeTab, setActiveTab] = useState("Edit Profile");
+    const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<UserData>({
-        name: "Rajesh Kumar",
-        email: "rajesh.kumar@gmail.com",
-        phone: "+91 98765 43210",
-        occupation: "Business Owner",
-        city: "Mumbai, Maharashtra",
-        address: "42 Marine Lines",
-        pincode: "400001",
-        annualIncome: "2400000",
-        pan: "ABCPK1234J",
-        memberSince: "2019",
-        totalPolicies: 4,
-        totalClaims: 2,
-        yearsWithUs: 6,
+        name: authUser?.name || "User",
+        email: authUser?.email || "",
+        phone: "",
+        occupation: "",
+        city: "",
+        address: "",
+        pincode: "",
+        annualIncome: "",
+        pan: "",
+        memberSince: new Date().getFullYear().toString(),
+        totalPolicies: 0,
+        totalClaims: 0,
+        yearsWithUs: 0,
     });
+
+    useEffect(() => {
+        const fetchProfileData = async () => {
+            if (!authUser?.id) {
+                setLoading(false);
+                return;
+            }
+            try {
+                // Fetch user profile from Supabase
+                const { data: profileData } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('user_id', authUser.id)
+                    .single();
+
+                // Fetch number of policies
+                const { data: policiesData } = await supabase
+                    .from('policies')
+                    .select('id', { count: 'exact' })
+                    .eq('user_id', authUser.id);
+                
+                const policiesCount = policiesData?.length || 0;
+
+                if (profileData) {
+                    const memberYear = profileData.created_at ? new Date(profileData.created_at).getFullYear() : new Date().getFullYear();
+                    
+                    setUser({
+                        name: profileData.full_name || authUser.name || "User",
+                        email: authUser.email || "",
+                        phone: profileData.phone || "",
+                        occupation: profileData.occupation || "",
+                        city: profileData.city || "",
+                        address: profileData.address || "",
+                        pincode: profileData.pincode || "",
+                        annualIncome: profileData.annual_income || "",
+                        pan: profileData.pan || "",
+                        memberSince: memberYear.toString(),
+                        totalPolicies: policiesCount,
+                        totalClaims: 0, // Mock
+                        yearsWithUs: new Date().getFullYear() - memberYear,
+                    });
+                } else {
+                    setUser(prev => ({
+                        ...prev,
+                        name: authUser.name || "User",
+                        email: authUser.email || "",
+                        totalPolicies: policiesCount
+                    }));
+                }
+            } catch (err) {
+                console.error("Failed to load profile", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProfileData();
+    }, [authUser]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center font-barlow" style={{ background: 'var(--black)', color: 'var(--white)' }}>
+                <div className="flex flex-col items-center gap-4">
+                    <Clock className="animate-spin" size={32} style={{ color: 'var(--accent-warm)' }} />
+                    <span className="condensed-font tracking-widest uppercase text-sm" style={{ color: 'var(--grey-400)' }}>Syncing secure profile...</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <>

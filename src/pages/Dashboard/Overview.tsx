@@ -11,7 +11,9 @@ import {
     Banknote,
     Activity,
 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useTheme } from "../../contexts/ThemeContext";
+import { supabase } from "../../lib/supabaseClient";
 
 // ─── Global Styles (mirrors HomePage token system) ────────────────────────────
 const OverviewStyles = () => (
@@ -474,117 +476,14 @@ const OverviewStyles = () => (
     `}</style>
 );
 
-// ─── Static Data ──────────────────────────────────────────────────────────────
-const STATS = [
-    {
-        label: "Total Policies",
-        value: "4",
-        delta: "+1 this year",
-        icon: CheckCircle2,
-        accent: "#22c55e",
-        accentBg: "rgba(34,197,94,0.07)",
-        accentBorder: "rgba(34,197,94,0.18)",
-    },
-    {
-        label: "Active Policies",
-        value: "1",
-        delta: "Awaiting approval",
-        icon: Clock,
-        accent: "var(--accent-warm)",
-        accentBg: "rgba(201,185,154,0.07)",
-        accentBorder: "rgba(201,185,154,0.18)",
-    },
-    {
-        label: "Renewals Due",
-        value: "2",
-        delta: "1 in progress",
-        icon: FileText,
-        accent: "#818cf8",
-        accentBg: "rgba(129,140,248,0.07)",
-        accentBorder: "rgba(129,140,248,0.18)",
-    },
-];
-
-const RECENT_POLICIES = [
-    {
-        id: "1",
-        name: "Term Life Insurance",
-        company: "LIC of India",
-        type: "Life",
-        status: "active" as const,
-        premium: "₹18,000",
-        expiry: "Mar 2035",
-        policy_number: "LIC-TL-002891",
-    },
-    {
-        id: "2",
-        name: "Health Shield Plus",
-        company: "Star Health",
-        type: "Health",
-        status: "active" as const,
-        premium: "₹22,400",
-        expiry: "Jan 2026",
-        policy_number: "STR-HP-774521",
-    },
-    {
-        id: "3",
-        name: "Motor Comprehensive",
-        company: "HDFC ERGO",
-        type: "Motor",
-        status: "pending" as const,
-        premium: "₹12,000",
-        expiry: "Jun 2026",
-        policy_number: "HDF-MC-119384",
-    },
-    {
-        id: "4",
-        name: "Home Protect 360",
-        company: "Bajaj Allianz",
-        type: "Property",
-        status: "active" as const,
-        premium: "₹16,000",
-        expiry: "Sep 2027",
-        policy_number: "BAJ-HP-558812",
-    },
-];
-
-const ACTIVITY = [
-    { label: "Policy renewal reminder sent", time: "2 days ago", type: "info" as const },
-    { label: "Claim #CLM-0021 status updated to In Progress", time: "5 days ago", type: "warn" as const },
-    { label: "Health Shield Plus premium paid", time: "12 Jan 2025", type: "success" as const },
-    { label: "New policy Motor Comprehensive added", time: "08 Jan 2025", type: "info" as const },
-    { label: "Profile verification completed", time: "02 Jan 2025", type: "success" as const },
-];
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-type PolicyStatus = "active" | "pending" | "expired";
+type PolicyStatus = "active" | "pending" | "expired" | "due";
 
 const STATUS_CONFIG: Record<PolicyStatus, { label: string; color: string; bg: string; border: string }> = {
     active: { label: "Active", color: "#22c55e", bg: "rgba(34,197,94,0.07)", border: "rgba(34,197,94,0.25)" },
     pending: { label: "Pending", color: "var(--accent-warm)", bg: "rgba(201,185,154,0.07)", border: "rgba(201,185,154,0.25)" },
+    due: { label: "Due", color: "#f59e0b", bg: "rgba(245,158,11,0.07)", border: "rgba(245,158,11,0.25)" },
     expired: { label: "Expired", color: "#ef4444", bg: "rgba(239,68,68,0.07)", border: "rgba(239,68,68,0.25)" },
-};
-
-const StatusBadge = ({ status }: { status: PolicyStatus }) => {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.expired;
-    return (
-        <span
-            className="ov-status-badge"
-            style={{
-                color: cfg.color,
-                background: cfg.bg,
-                borderColor: cfg.border,
-            }}
-        >
-            {cfg.label}
-        </span>
-    );
-};
-
-const ACTIVITY_ICONS: Record<string, { icon: React.ElementType; color: string }> = {
-    info: { icon: Activity, color: "var(--grey-600)" },
-    warn: { icon: AlertTriangle, color: "var(--accent-warm)" },
-    success: { icon: CheckCircle2, color: "#22c55e" },
 };
 
 // ─── Stagger helpers ──────────────────────────────────────────────────────────
@@ -594,11 +493,94 @@ const fadeUp = (delay = 0) => ({
     transition: { duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] as const },
 });
 
+// Formatter helper
+const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? dateString : date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+};
+
+const StatusBadge = ({ status }: { status: PolicyStatus }) => {
+    const config = STATUS_CONFIG[status] || STATUS_CONFIG.expired;
+    return (
+        <span
+            className="ov-status-badge"
+            style={{
+                color: config.color,
+                background: config.bg,
+                borderColor: config.border,
+                borderRadius: "4px"
+            }}
+        >
+            {config.label}
+        </span>
+    );
+};
+
 // ─── Overview Page ────────────────────────────────────────────────────────────
 const OverviewPage = () => {
-    // useTheme is consumed so the component re-renders on theme switch —
-    // all colours resolve from CSS variables so no explicit branching needed.
     useTheme();
+    const [policiesData, setPoliciesData] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchPolicies = async () => {
+            const { data, error } = await supabase.from('policies').select('*').order('expiry_date', { ascending: true });
+            if (data && !error) {
+                setPoliciesData(data);
+            }
+        };
+        fetchPolicies();
+    }, []);
+
+    const totalPolicies = policiesData.length;
+    const activePolicies = policiesData.filter(p => p.status?.toLowerCase() === 'active').length;
+    const duePolicies = policiesData.filter(p => p.status?.toLowerCase() === 'due' || p.status?.toLowerCase() === 'pending').length;
+
+    const STATS = [
+        {
+            label: "Total Policies",
+            value: totalPolicies.toString(),
+            delta: "",
+            icon: CheckCircle2,
+            accent: "#22c55e",
+            accentBg: "rgba(34,197,94,0.07)",
+            accentBorder: "rgba(34,197,94,0.18)",
+        },
+        {
+            label: "Active Policies",
+            value: activePolicies.toString(),
+            delta: "",
+            icon: Clock,
+            accent: "var(--accent-warm)",
+            accentBg: "rgba(201,185,154,0.07)",
+            accentBorder: "rgba(201,185,154,0.18)",
+        },
+        {
+            label: "Renewals Due",
+            value: duePolicies.toString(),
+            delta: "",
+            icon: FileText,
+            accent: "#818cf8",
+            accentBg: "rgba(129,140,248,0.07)",
+            accentBorder: "rgba(129,140,248,0.18)",
+        },
+    ];
+
+    const RECENT_POLICIES = policiesData.slice(0, 5).map(p => ({
+        id: p.id,
+        name: p.policy_name || "Unknown Policy",
+        company: p.company_name || "Unknown Provider",
+        type: "General",
+        status: (p.status?.toLowerCase() || "expired") as PolicyStatus,
+        premium: "N/A", // Not schema available
+        expiry: formatDate(p.expiry_date),
+        policy_number: p.policy_number || "N/A",
+    }));
+
+    const ACTIVITY = [
+        { label: "Dashboard updated with latest policies", time: "Just now", type: "success" as const },
+        { label: "Profile verification completed", time: "Recently", type: "info" as const },
+    ];
 
     return (
         <>
