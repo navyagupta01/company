@@ -633,7 +633,7 @@ const OverviewPage = () => {
                 </motion.div>
 
                 {/* ── Main Grid ───────────────────────────────────────────── */}
-                <div className="ov-grid-1">
+                <div className="ov-grid-2">
 
                     {/* Left — Recent Policies */}
                     <motion.div {...fadeUp(0.14)}>
