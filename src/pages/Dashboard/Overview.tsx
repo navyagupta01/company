@@ -7,9 +7,6 @@ import {
     Shield,
     AlertTriangle,
     ArrowRight,
-    CalendarDays,
-    Banknote,
-    Activity,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -577,10 +574,7 @@ const OverviewPage = () => {
         policy_number: p.policy_number || "N/A",
     }));
 
-    const ACTIVITY = [
-        { label: "Dashboard updated with latest policies", time: "Just now", type: "success" as const },
-        { label: "Profile verification completed", time: "Recently", type: "info" as const },
-    ];
+
 
     return (
         <>
